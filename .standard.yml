@@ -1,0 +1,14 @@
+# StandardRB configuration
+# https://github.com/standardrb/standard
+
+ignore:
+  - ext/ml_dsa/extconf.rb:
+      # extconf.rb uses mkmf globals ($CFLAGS, $srcs) which are the
+      # required API — not something we can refactor away.
+      - Style/GlobalVars
+      # Integer(s, exception: false) returns nil-on-failure differently
+      # than Integer(s) rescue nil in edge cases; mkmf context is fine.
+      - Lint/SuppressedExceptionInNumberConversion
+  - test/ml_dsa/kat_test.rb:
+      # YAML.safe_load_file requires Ruby 3.1+; we support 2.7.
+      - Style/YAMLFileRead

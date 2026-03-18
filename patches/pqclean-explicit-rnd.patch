@@ -1,0 +1,64 @@
+From: ml_dsa gem maintainers
+Subject: [PATCH] Add explicit parameters to PQClean keygen and signing
+
+Two patches applied to all three parameter set variants (44, 65, 87):
+
+1. crypto_sign_keypair: add `const uint8_t *seed_in` parameter.
+   Replaces the internal `randombytes(seedbuf, SEEDBYTES)` call with
+   `memcpy(seedbuf, seed_in, SEEDBYTES)`.  The caller generates the
+   seed (from OS CSPRNG, pluggable RNG, or user-provided) and passes
+   it explicitly.  This eliminates the need for thread-local seed
+   override hacks in randombytes.c.
+
+2. crypto_sign_signature_ctx: add `const uint8_t *rnd_in` parameter.
+   Replaces the internal `randombytes(rnd, RNDBYTES)` call with
+   `memcpy(rnd, rnd_in, RNDBYTES)`.  The caller passes OS-random bytes
+   for hedged signing or zeroes for deterministic signing (FIPS 204 S3).
+
+Applied to: ml-dsa-44/clean, ml-dsa-65/clean, ml-dsa-87/clean
+Each variant receives identical structural changes; only the symbol
+prefix (PQCLEAN_MLDSA44_CLEAN, etc.) differs.
+
+---
+ ext/ml_dsa/ml-dsa-{44,65,87}/clean/api.h  |  keygen + sign declarations
+ ext/ml_dsa/ml-dsa-{44,65,87}/clean/sign.h |  keygen + sign declarations
+ ext/ml_dsa/ml-dsa-{44,65,87}/clean/sign.c |  keygen + sign implementations
+
+For each variant (shown for ml-dsa-44, identical for 65/87):
+
+--- a/ext/ml_dsa/ml-dsa-44/clean/api.h
++++ b/ext/ml_dsa/ml-dsa-44/clean/api.h
+@@ keygen declaration
+-int PQCLEAN_MLDSA44_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk);
++int PQCLEAN_MLDSA44_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk,
++        const uint8_t *seed_in);
+
+@@ sign_signature_ctx declaration
+ int PQCLEAN_MLDSA44_CLEAN_crypto_sign_signature_ctx(uint8_t *sig, size_t *siglen,
+         const uint8_t *m, size_t mlen,
+         const uint8_t *ctx, size_t ctxlen,
+-        const uint8_t *sk);
++        const uint8_t *sk,
++        const uint8_t *rnd_in);
+
+--- a/ext/ml_dsa/ml-dsa-44/clean/sign.c
++++ b/ext/ml_dsa/ml-dsa-44/clean/sign.c
+@@ keygen implementation
+-int PQCLEAN_MLDSA44_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk) {
++int PQCLEAN_MLDSA44_CLEAN_crypto_sign_keypair(uint8_t *pk, uint8_t *sk,
++        const uint8_t *seed_in) {
+     /* ... */
+-    randombytes(seedbuf, SEEDBYTES);
++    /* Caller provides the seed: OS-random for normal keygen,
++     * or a user-supplied seed for deterministic keygen. */
++    memcpy(seedbuf, seed_in, SEEDBYTES);
+
+@@ sign_signature_ctx implementation
+-        const uint8_t *sk) {
++        const uint8_t *sk,
++        const uint8_t *rnd_in) {
+     /* ... */
+-    randombytes(rnd, RNDBYTES);
++    /* rnd_in is provided by the caller: OS-random for hedged signing,
++     * or 0^RNDBYTES for deterministic signing (FIPS 204 S3). */
++    memcpy(rnd, rnd_in, RNDBYTES);

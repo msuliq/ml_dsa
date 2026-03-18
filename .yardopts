@@ -1,0 +1,4 @@
+--markup markdown
+--output-dir doc
+--title "ML-DSA Ruby Gem"
+lib/**/*.rb

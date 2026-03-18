@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Ruby ${{ matrix.ruby }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        ruby: ["2.7", "3.2", "4.0"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Compile and test
+        run: bundle exec rake test
+
+  lint-ruby:
+    name: StandardRB
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: Run StandardRB
+        run: bundle exec standardrb --no-fix
+
+  lint-c:
+    name: cppcheck (C static analysis)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+      - name: Run cppcheck on extension source
+        run: |
+          cppcheck --enable=warning,style,performance,portability \
+                   --suppress=missingIncludeSystem \
+                   --suppress=unusedFunction \
+                   --error-exitcode=1 \
+                   --inline-suppr \
+                   --quiet \
+                   --std=c11 \
+                   -I ext/ml_dsa \
+                   ext/ml_dsa/ml_dsa_ext.c \
+                   ext/ml_dsa/ml_dsa_internal.h \
+                   ext/ml_dsa/randombytes.c \
+                   ext/ml_dsa/randombytes.h
+
+  asan:
+    name: ASAN/UBSAN
+    runs-on: ubuntu-latest
+    env:
+      CFLAGS: "-fsanitize=address,undefined -fno-omit-frame-pointer -g -O1"
+      LDFLAGS: "-fsanitize=address,undefined"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: Compile with sanitizers
+        run: bundle exec rake compile
+      - name: Run tests under sanitizers
+        env:
+          ASAN_OPTIONS: "detect_leaks=1:abort_on_error=1:detect_stack_use_after_return=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+        run: bundle exec rake test
+
+  benchmark:
+    name: Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: Compile extension
+        run: bundle exec rake compile
+      - name: Run benchmarks
+        run: bundle exec ruby benchmark/bench.rb
+
+  audit:
+    name: Bundler Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+      - name: Check for vulnerable dependencies
+        run: bundle exec bundler-audit check --update

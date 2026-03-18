@@ -1,0 +1,5 @@
+pqclean
+commit: main (initial vendor)
+date: 2025-01-01
+url: https://github.com/PQClean/PQClean
+patches: patches/pqclean-explicit-rnd.patch

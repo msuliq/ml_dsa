@@ -1,0 +1,53 @@
+---
+# .clang-format — ML-DSA C extension style
+# Matches the existing hand-written style in ext/ml_dsa/.
+#
+# Run:  clang-format --dry-run -Werror ext/ml_dsa/ml_dsa_ext.c ext/ml_dsa/ml_dsa_internal.h
+# Fix:  clang-format -i ext/ml_dsa/ml_dsa_ext.c ext/ml_dsa/ml_dsa_internal.h
+
+Language: C
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+IndentCaseLabels: false
+IndentPPDirectives: AfterHash
+
+# Braces: K&R for control flow / structs, next-line for functions
+BreakBeforeBraces: Linux
+
+# Line length — allow generous width for crypto code
+ColumnLimit: 100
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
+AlignOperands: Align
+AlignTrailingComments: true
+
+# Spaces
+SpaceAfterCStyleCast: false
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+
+# Includes
+SortIncludes: Never
+
+# Pointer alignment
+PointerAlignment: Right
+
+# Keep short functions/ifs on one line only when truly short
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+
+# Penalties — prefer breaking before arguments over exceeding column limit
+PenaltyBreakBeforeFirstCallParameter: 30
+PenaltyExcessCharacter: 100
+PenaltyReturnTypeOnItsOwnLine: 60
+...

@@ -1,0 +1,178 @@
+module MlDsa
+  VERSION: String
+  SEED_BYTES: Integer
+
+  ML_DSA_44: ParameterSet
+  ML_DSA_65: ParameterSet
+  ML_DSA_87: ParameterSet
+
+  ML_DSA_OIDS: Hash[Integer, String]
+  ML_DSA_OID_TO_CODE: Hash[String, Integer]
+
+  PARAM_SET_BY_PK_SIZE: Hash[Integer, ParameterSet]
+  PARAM_SET_BY_SK_SIZE: Hash[Integer, ParameterSet]
+  PARAM_SET_BY_SIG_SIZE: Hash[Integer, ParameterSet]
+
+  def self.config: () -> Config
+
+  def self.subscribe: () { (Hash[Symbol, untyped]) -> void } -> Proc
+  def self.unsubscribe: (Proc subscriber) -> Proc?
+  def self.random_source: () -> Proc?
+  def self.random_source=: (Proc? source) -> Proc?
+
+  def self.keygen: (ParameterSet param_set, ?seed: String?, ?config: Config?) -> KeyPair
+
+  def self.sign_many: (Array[SignRequest] operations, ?config: Config?, ?yield_every: Integer) -> Array[String]
+
+  def self.verify_many: (Array[VerifyRequest] operations, ?config: Config?, ?yield_every: Integer) -> Array[Result]
+
+  def self.batch: (?config: Config?, ?yield_every: Integer) { (BatchBuilder) -> void } -> (Array[String] | Array[Result])
+
+  class Config
+    def initialize: () -> void
+    def subscribe: () { (Hash[Symbol, untyped]) -> void } -> Proc
+    def unsubscribe: (Proc subscriber) -> Proc?
+    attr_reader random_source: Proc?
+    def random_source=: (Proc? source) -> void
+    def notify: (Symbol operation, ParameterSet? param_set, Integer count, Integer duration_ns) -> nil
+  end
+
+  class ParameterSet
+    include Comparable
+
+    attr_reader name: String
+    attr_reader code: Integer
+    attr_reader security_level: Integer
+    attr_reader public_key_bytes: Integer
+    attr_reader secret_key_bytes: Integer
+    attr_reader signature_bytes: Integer
+
+    def <=>: (ParameterSet other) -> Integer?
+    def to_s: () -> String
+    def inspect: () -> String
+  end
+
+  class KeyPair
+    attr_reader public_key: PublicKey
+    attr_reader secret_key: SecretKey
+
+    def to_ary: () -> [PublicKey, SecretKey]
+    def to_a: () -> [PublicKey, SecretKey]
+    def deconstruct: () -> [PublicKey, SecretKey]
+    def param_set: () -> ParameterSet
+    def inspect: () -> String
+    def to_s: () -> String
+  end
+
+  class PublicKey
+    def param_set: () -> ParameterSet
+    def bytesize: () -> Integer
+    def to_bytes: () -> String
+    def to_hex: () -> String
+    def fingerprint: () -> String
+    def to_der: () -> String
+    def to_pem: () -> String
+    def verify: (String message, String signature, ?context: String) -> bool
+    def to_s: () -> String
+    def inspect: () -> String
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    attr_reader created_at: Time?
+    attr_reader key_usage: Symbol?
+    def key_usage=: (Symbol? value) -> Symbol?
+
+    def self.from_bytes: (String bytes, ?ParameterSet? param_set) -> PublicKey
+    def self.from_hex: (String hex, ?ParameterSet? param_set) -> PublicKey
+    def self.from_der: (String der) -> PublicKey
+    def self.from_pem: (String pem) -> PublicKey
+  end
+
+  class SecretKey
+    def param_set: () -> ParameterSet
+    def public_key: () -> PublicKey?
+    def seed: () -> String?
+    def bytesize: () -> Integer
+    def with_bytes: [T] () { (String) -> T } -> T
+    def wipe!: () -> nil
+    def sign: (String message, ?deterministic: bool, ?context: String) -> String
+    def to_der: () -> String
+    def to_pem: () -> String
+    def to_s: () -> String
+    def inspect: () -> String
+    def ==: (untyped other) -> bool
+    def eql?: (untyped other) -> bool
+    def hash: () -> Integer
+
+    attr_reader created_at: Time?
+    attr_reader key_usage: Symbol?
+    def key_usage=: (Symbol? value) -> Symbol?
+
+    def self.from_bytes: (String bytes, ?ParameterSet? param_set) -> SecretKey
+    def self.from_hex: (String hex, ?ParameterSet? param_set) -> SecretKey
+    def self.from_der: (String der) -> SecretKey
+    def self.from_pem: (String pem) -> SecretKey
+    def self.from_seed: (String seed, ParameterSet param_set) -> SecretKey
+  end
+
+  class SignRequest
+    attr_accessor sk: SecretKey
+    attr_accessor message: String
+    attr_accessor context: String?
+    attr_accessor deterministic: bool?
+
+    def initialize: (?sk: SecretKey, ?message: String, ?context: String?, ?deterministic: bool?) -> void
+    def validate!: () -> self
+  end
+
+  class VerifyRequest
+    attr_accessor pk: PublicKey
+    attr_accessor message: String
+    attr_accessor signature: String
+    attr_accessor context: String?
+
+    def initialize: (?pk: PublicKey, ?message: String, ?signature: String, ?context: String?) -> void
+    def validate!: () -> self
+  end
+
+  class Result
+    attr_reader value: bool
+    attr_reader ok: bool
+    attr_reader reason: String?
+
+    def initialize: (?value: bool, ?ok: bool, ?reason: String?) -> void
+    def ok?: () -> bool
+    def inspect: () -> String
+    def to_s: () -> String
+  end
+
+  class BatchBuilder
+    def sign: (sk: SecretKey, message: String, ?context: String?, ?deterministic: bool) -> self
+    def verify: (pk: PublicKey, message: String, signature: String, ?context: String?) -> self
+    def execute: (?config: Config, ?yield_every: Integer) -> (Array[String] | Array[Result])
+  end
+
+  class Error < StandardError
+    def reason: () -> String?
+  end
+
+  class Error::KeyGeneration < Error
+  end
+
+  class Error::Signing < Error
+  end
+
+  class Error::Deserialization < Error
+    def format: () -> String?
+    def position: () -> Integer?
+  end
+end
+
+module PQC
+  MlDsa: Module
+
+  def self.register: (Symbol name, Module mod) -> void
+  def self.algorithms: () -> Hash[Symbol, Module]
+  def self.algorithm: (Symbol name) -> Module?
+end
